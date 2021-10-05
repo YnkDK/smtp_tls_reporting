@@ -8,6 +8,7 @@ from flask import request, jsonify
 from flask_restful import Resource
 from werkzeug.datastructures import FileStorage
 
+from smtp_tls_reporting.features.exceptions import MissingParameterError
 from smtp_tls_reporting.features.mta_sts.MtaStsReportBuilder import MtaStsReportBuilder
 
 
@@ -139,12 +140,11 @@ class MtaStsReports(Resource):
                                                     format: ip
                                                     example: "2001:db8:abcd:0013::1"
         """
-        report = request.files.get('report')  # type: FileStorage
-        if report is None:
-            return {'error': 'Missing parameter: report'}, 400
+        report = request.files.get('report')
+        try:
+            assert isinstance(report, FileStorage), 'report'
+        except AssertionError as e:
+            raise MissingParameterError(e)
 
         mta_sts_report = MtaStsReportBuilder.build_report(report)
-
-        if mta_sts_report.has_parsing_errors:
-            return {'error': mta_sts_report.parsing_error_message}, 400
         return jsonify(mta_sts_report)

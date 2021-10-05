@@ -11,6 +11,7 @@ from typing import List
 
 import werkzeug.datastructures
 
+from smtp_tls_reporting.features.exceptions import GzipError, InternalError, JsonError
 from smtp_tls_reporting.features.mta_sts._Policy import Policy
 from smtp_tls_reporting.features.mta_sts._ReportMeta import ReportMeta
 
@@ -29,19 +30,16 @@ class MtaStsReport:
         try:
             self.__original_report = report.stream.read()
         except Exception as e:
-            self.__internal_exception = e
+            raise InternalError(e)
 
     def parse(self):
-        assert not self.has_parsing_errors
-
         buffer = self.__original_report
         if buffer.startswith(MtaStsReport.MAGIC_BYTE_GZ):
             compressed_file = io.BytesIO(buffer)
             try:
                 buffer = gzip.GzipFile(fileobj=compressed_file).read()
             except Exception as e:
-                self.__internal_exception = e
-                return
+                raise GzipError(e)
 
         try:
             raw_report = json.loads(buffer)
@@ -49,18 +47,7 @@ class MtaStsReport:
             for policy in raw_report['policies']:
                 self.__policies.append(Policy(policy))
         except (json.JSONDecodeError, ValueError, TypeError) as e:
-            self.__internal_exception = e
-
-    @property
-    def has_parsing_errors(self):
-        return self.__internal_exception is not None
-
-    @property
-    def parsing_error_message(self):
-        if not self.has_parsing_errors:
-            raise RuntimeError('Has no parsing error messages.')
-        # TODO: Do not do this in production - message shouldn't reveal any internals
-        return repr(self.__internal_exception)
+            raise JsonError(e)
 
     @property
     def total_failure_session_count(self) -> int:

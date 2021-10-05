@@ -10,6 +10,7 @@ import io
 import werkzeug.datastructures
 from parameterized import parameterized
 
+from smtp_tls_reporting.features.exceptions import InternalError, JsonError, GzipError
 from smtp_tls_reporting.features.mta_sts._MtaStsReport import MtaStsReport
 from smtp_tls_reporting.features.mta_sts.test_assertion_example_report import TestAssertionExampleReport, \
     test_data_files_iterator
@@ -23,49 +24,59 @@ class TestMtaStsReport(TestAssertionExampleReport):
 
         report.set_report(test_report)
 
-        self.assertFalse(report.has_parsing_errors)
-
     def test_set_report_error(self):
+        exception_thrown = NotImplementedError()
         report = MtaStsReport()
         stream = io.BytesIO(b'The quick brown fox jumps over the lazy dog')
         stream.close()
         test_report = werkzeug.datastructures.FileStorage(stream=stream)
 
-        report.set_report(test_report)
+        try:
+            report.set_report(test_report)
+        except InternalError as e:
+            exception_thrown = e
 
-        self.assertTrue(report.has_parsing_errors)
-        self.assertIsInstance(report.parsing_error_message, str)
+        self.assertIsInstance(exception_thrown, InternalError)
 
     def test_parse_error(self):
+        exception_thrown = NotImplementedError()
         report = MtaStsReport()
         test_report = TestMtaStsReport.data_file_as_filestorage('date_error.json')
         report.set_report(test_report)
 
-        report.parse()
+        try:
+            report.parse()
+        except JsonError as e:
+            exception_thrown = e
 
-        self.assertTrue(report.has_parsing_errors)
-        self.assertIsInstance(report.parsing_error_message, str)
+        self.assertIsInstance(exception_thrown, JsonError)
 
     def test_parse_invalid_json(self):
+        exception_thrown = NotImplementedError()
         report = MtaStsReport()
         pangram = b'{"invalid_json": "missing_bracket ->"'
         test_report = werkzeug.datastructures.FileStorage(stream=io.BytesIO(pangram))
         report.set_report(test_report)
 
-        report.parse()
+        try:
+            report.parse()
+        except JsonError as e:
+            exception_thrown = e
 
-        self.assertTrue(report.has_parsing_errors)
-        self.assertIsInstance(report.parsing_error_message, str)
+        self.assertIsInstance(exception_thrown, JsonError)
 
     def test_parse_invalid_gz(self):
+        exception_thrown = NotImplementedError()
         report = MtaStsReport()
         test_report = werkzeug.datastructures.FileStorage(stream=io.BytesIO(MtaStsReport.MAGIC_BYTE_GZ))
         report.set_report(test_report)
 
-        report.parse()
+        try:
+            report.parse()
+        except GzipError as e:
+            exception_thrown = e
 
-        self.assertTrue(report.has_parsing_errors)
-        self.assertIsInstance(report.parsing_error_message, str)
+        self.assertIsInstance(exception_thrown, GzipError)
 
     @parameterized.expand(test_data_files_iterator)
     def test_parse(self, test_data_file: str):
@@ -84,7 +95,6 @@ class TestMtaStsReport(TestAssertionExampleReport):
 
         report.parse()
 
-        self.assertFalse(report.has_parsing_errors)
         self.assertEqual(0, len(report.policies))
 
     def test_as_dict(self):

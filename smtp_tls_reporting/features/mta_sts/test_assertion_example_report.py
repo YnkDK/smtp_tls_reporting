@@ -30,7 +30,6 @@ class TestAssertionExampleReport(unittest.TestCase):
         return werkzeug.datastructures.FileStorage(stream=io.BytesIO(content))
 
     def assert_example_report_parsed_correctly(self, report: MtaStsReport):
-        self.assertFalse(report.has_parsing_errors)
         self.assertFalse(report.has_empty_policy)
         self.assertEqual(1, len(report.all_failures()))
         self.assertEqual(303, report.total_failure_session_count)

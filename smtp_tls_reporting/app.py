@@ -10,11 +10,12 @@ from flask import Flask
 from flask_restful import Api
 
 from smtp_tls_reporting.config import swagger_config
-from smtp_tls_reporting.controllers import CustomJsonEncoder
+from smtp_tls_reporting.controllers import CustomJsonEncoder, setup_error_handler
 from smtp_tls_reporting.controllers.mta_sts_reports import MtaStsReports
 
 app = Flask(__name__)
 app.json_encoder = CustomJsonEncoder
+setup_error_handler(app)
 
 api = Api(app)
 swagger = Swagger(app, config=swagger_config)
